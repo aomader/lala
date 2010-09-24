@@ -1,0 +1,135 @@
+/* corpus */
+html, body {
+    width: 100%;
+    min-width: 700px;
+    font-family: sans-serif;
+    font-size: 11px;
+    color: #666;
+    margin: 0;
+    padding: 0;
+}
+
+/* navigation */
+nav {
+    position: fixed;
+    width: 100%;
+    height: 26px;
+    top: 0;
+    margin: 0;
+    padding: 0;
+    background-color: #3d4444;
+}
+nav ul {
+    list-style: none;
+    position: fixed;
+    top: 0;
+    padding: 0;
+    margin: 0;
+}
+nav li {
+    float: left;
+    margin: 4px 0;
+    padding: 0;
+}
+nav #menu {
+    left: 50%;
+    margin-left: -350px;
+}
+nav #menu li {
+    padding-right: 16px;
+}
+nav #controls {
+    right: 50%;
+    margin-right: -350px;
+}
+nav #controls li {
+    padding-left: 2px;
+}
+nav a {
+    text-decoration: none;
+    text-transform: uppercase;
+    color: #999;
+    font-family: sans-serif;
+    font-size: 10px;
+}
+nav a:hover {
+    text-decoration: underline;
+    text-underline-style: dotted;
+}
+nav a.active {
+    color: #fff;
+}
+nav #loading {
+    position: relative;
+    left: 2px;
+    bottom: 0px;
+}
+
+section {
+    display: block;
+    width: 700px;
+    margin: 40px auto;
+}
+/* table style */
+table, tr, th, td {
+    margin: 0;
+    padding: 0;
+    border-spacing: 0;
+}
+tr {
+    margin: 3px 3px;
+}
+tr.odd {
+    background-color: #fbfbfb;
+}
+tr.current {
+    font-weight: bold;
+    color: #444;
+}
+tr:hover {
+    background-color: #d9f2ff;
+    color: #0d6b9b;
+}
+th {
+    border-bottom: 1px solid #ccc;
+    text-align: left;
+    padding: 1px 4px;
+}
+td {
+    border-bottom: 1px dashed #ddd;
+    padding: 3px 4px;
+    margin: 3px 5px;
+}
+
+/* notification */
+div.error {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 200px;
+    background-color: #d23939;
+    border: 1px solid #ef1010;
+    color: #c30000;
+    padding: 5px 8px;
+    -webkit-border-radius: 10px;
+}
+div.disconnected {
+    position: absolute;
+    width: 300px;
+    top: 40%;
+    left: 50%;
+    margin-left: -150px;
+    padding: 8px 14px;
+    background-color: #f38e18;
+    border: 3px solid #ff8960;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    font-family: sans-serif;
+    font-size: 32px;
+}
+
+/* general */
+img {
+    border: 0;
+}
+

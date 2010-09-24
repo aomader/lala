@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+
+<meta charset=utf-8>
+<title>lala - stopped</title>
+<link rel="shortcut icon" href=favicon.ico>
+<link rel=stylesheet href=/static/css/lala.css>
+
+<nav>
+    <img id=loading src=/static/img/loading.gif style=display:none; />
+    <ul id=menu>
+        <li><a href=#current id=current title=Current>Current</a></li>
+        <li><a href=#library id=library title=Library>Library</a></li>
+        <li><a href=#playlists id=playlists title=Playlists>Playlists</a></li>
+    </ul>
+    <ul id=controls>
+        <li><a href=#previous title=Previous><img src=/static/img/previous.png alt=Previous /></a></li>
+        <li id=playtoogle><a href=#play title=Play><img src=/static/img/play.png alt=Play /></a></li>
+        <!--<li><a href=#pause title=Pause><img src=/static/img/pause.png alt=Pause /></a></li>-->
+        <li><a href=#stop title=Stop><img src=/static/img/stop.png alt=Stop /></a></li>
+        <li><a href=#next title=Next><img src=/static/img/next.png alt=Next /></a></li>
+    </ul>
+</nav>
+
+<section>
+    <!-- here goes the content -->
+</section>
+
+<script type=text/javascript src=/static/js/jquery.js></script>
+<script type=text/javascript src=/static/js/jquery.history.js></script>
+<script type=text/javascript src=/static/js/lala.js></script>
+
+<script type=text/javascript>
+    $(window).load(function() {
+        lala.init();
+    });
+</script>
