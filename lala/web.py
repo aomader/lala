@@ -3,10 +3,10 @@
 
 from operator import itemgetter
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 
-from .connection import MPDThread, NotConnected, mpd_command
-from .server import LaLa
+from .mpd import MPDThread, NotConnected, mpd_command
+from .app import LaLa
 
 app = Flask(__name__)
 lala = LaLa()
@@ -15,26 +15,29 @@ lala = LaLa()
 def index():
     return render_template('index.html')
 
-@app.route('/api/<command>')
+@app.route('/api/status')
 @mpd_command
-def api_command(command):
-    if command in ('play', 'stop', 'pause', 'next', 'previous'):
-        return lala.command(command)
-    elif command == 'status':
-        status = lala.status()
-        status.update(currentsong=lala.command('currentsong'))
-        if status['status'] == MPDThread.DISCONNECTED:
-            raise NotConnected
-        return status
-    elif command == 'current':
-        tracks = []
-        for track in lala.command('playlistinfo'):
-            tracks.append({'id': track['id'],
-                           'artist': track['artist'],
-                           'album': track['album'],
-                           'title': track['title'],
-                           'time': '%i:%02i' % (int(track['time']) / 60, int(track['time']) % 60)})
-        return {'tracks': tracks, 'current': lala.command('currentsong')['id']}
+def api_status():
+    return lala.status()
+
+@app.route('/api/control/<action>')
+@mpd_command
+def api_control(action):
+    if action not in ('play', 'stop', 'pause', 'next', 'previous'):
+        return ''
+
+    lala.command(action)
+    return lala.status()
+
+@app.route('/api/playlist/info')
+@mpd_command
+def api_playlist_info():
+    return lala.current_playlist()
+
+@app.route('/api/library')
+@mpd_command
+def api_library():
+    return lala.browse_library(request.args.get('path', ''))
 
 def run():
     lala.start()

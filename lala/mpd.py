@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
 from functools import wraps
-from threading import Thread, Event, Lock, Condition
+from threading import Thread, Event, Lock
 from time import time, sleep
 
 from flask import jsonify
-from mpd import MPDClient, CommandError
+from mpd import MPDClient, ConnectionError
 
 class NotConnected(Exception):
+    pass
+class CommandError(Exception):
     pass
 
 class MPDThread(Thread):
@@ -22,9 +25,8 @@ class MPDThread(Thread):
         self.port = port
         self.password = password
 
-        self._loop = Event()
+        self._stop = Event()
         self._lock = Lock()
-        self._condition = Condition()
         self._mpd = None
         self.status = self.DISCONNECTED
         self.last_error = ''
@@ -34,16 +36,20 @@ class MPDThread(Thread):
         self.retry_timeout = 5
         self.idle_timeout = 15
 
-        self._loop.set()
-
     def run(self):
-        while self._loop.is_set():
+        while not self._stop.is_set():
             if self.status is self.DISCONNECTED:
                 if not self._connect():
-                    sleep(self.retry_timeout)
+                    self._stop.wait(self.retry_timeout)
                 continue
 
-            sleep(self.idle_timeout if self._ping() else self.retry_timeout)
+            self._stop.wait(self.idle_timeout if self._ping() else self.retry_timeout)
+
+        try:
+            self._mpd.close()
+            self._mpd.disconnect()
+        except:
+            pass
 
     def command(self, command, *args):
         with self._lock:
@@ -52,25 +58,19 @@ class MPDThread(Thread):
 
             try:
                 return getattr(self._mpd, command)(*args)
-            except CommandError as e:
-                print 'Unknown command %s: %s' % (command, e)
-            except Exception as e:
+            except (ConnectionError, IOError) as e:
                 self.status = self.DISCONNECTED
                 self.last_error = unicode(e)
                 raise NotConnected(self.last_error)
+            except MPDError as e:
+                raise CommandError(unicode(e))
                 
 
     def listen(self, callback_func):
         pass
 
-    def get_status(self):
-        return {'status': self.status,
-                'last_error': self.last_error,
-                'latency': self.latency,
-                'connected': self.connected_since}
-
     def stop(self):
-        self._loop.clear()
+        self._stop.set()
         self.join()
 
     def _connect(self):
@@ -89,7 +89,7 @@ class MPDThread(Thread):
                 self.connected_since = time()
 
                 return True
-            except Exception as e:
+            except (ConnectionError, IOError) as e:
                 self.last_error = unicode(e)
 
         return False
@@ -103,7 +103,7 @@ class MPDThread(Thread):
                 self.latency = round((end - start) * 1000.0, 2)
 
                 return True
-            except Exception as e:
+            except (ConnectionError, IOError) as e:
                 self.status = self.DISCONNECTED
                 self.last_error = unicode(e)
 
@@ -115,6 +115,9 @@ def mpd_command(function):
         try:
             return jsonify({'status': 'ok',
                             'data': function(*args, **kwargs)})
+        except CommandError as e:
+            return jsonify({'status': 'error',
+                            'reason': unicode(e)})
         except NotConnected as e:
             return jsonify({'status': 'disconnected',
                             'reason': '%s' % e})
