@@ -1,31 +1,49 @@
-var lala = {
-    controls: null,
-    content: null,
-    last_action: null,
+var lala =
+{
+    text:
+    {
+        current_empty: 'There are no tracks in your current playlist, I\'m sorry :\'('
+    },
+
     current_song: null,
 
     init: function() {
-        lala.controls = $('nav');
-        lala.content = $('section');
-
         /* loading indicator */
         $('#loading').ajaxStart(function() { $(this).show(); }).ajaxStop(function() { $(this).hide(); });
 
+        /* commonly used references */
+        lala.controls = $('nav:first');
+        lala.content = $('section:first');
+
+        /* install simple control callbacks */
+        $('#previous,#playpause,#stop,#next').click(function() {
+            lala.request({
+                url: '/api/control/' + ($(this).attr('id') == 'playpause' ? $(this).attr('class') : $(this).attr('id')),
+                callback: lala.status.update
+            });
+        });
+
         /* install history callback */
         $.history.init(function(url) {
-            lala.action(url, null);
+            lala.action(url);
         });
+
+        /* should we install a history entry and call the desired action */
         $('a').live('click', function(e) {
             var url = $(this).attr('href').replace(/^.*#/, '');
-            lala.action(url);
+            if (url != '')
+                $.history.load(url);
             return false;
         });
 
         /* install update interval */
-        lala.status.interval = window.setInterval(function() { lala.parse_data('/api/status', lala.status.update); }, 5000);
-
-        if (!lala.last_action)
-            lala.action('current');
+        lala.status.interval = window.setInterval(function() {
+            lala.request({
+                url: '/api/status',
+                callback: lala.status.update,
+                global: false
+            });
+        }, 1000);
 
         /* visuals */
         $(window).scroll(function(eventObject) {
@@ -39,30 +57,54 @@ var lala = {
 
     status:
     {
-        interval: null,
-        value: 2,
+        value: 1,
+        last_state: '',
+        last_current_song: -1,
 
         update: function(data)
         {
-            var title = 'lala - ';
-            if (data.state == 'play') {
-                title += 'playing ' + data.current_song.name;
-            } else {
-                title += data.state;
-            }
-
-            document.title = title;
-
-            if (lala.last_action == 'current') {
-                $('section tr').removeClass('current');
-                $('section tr .time').remove();
-                if (data.current_song) {
-                    tr = $('#track' + data.current_song.id);
-                    tr.addClass('current');
-                    tr.find('td:nth-child(3)').prepend('<span class=time>' + data.current_song.time + ' / </span>');
-                    
+            if (lala.status.last_state != data.state ||
+                (data.current_song && data.current_song.id != lala.status.last_current_song))
+            {
+                var title = '';
+                if (data.state == 'play') {
+                    title += 'playing ' + data.current_song.name + ' | ';
+                } else if (data.state == 'pause') {
+                    title += 'paused | ';
+                } else if (data.state == 'stop') {
+                    title += 'stopped | ';
                 }
+                document.title = title + 'lala';
+
+                var control_state = (data.state == 'play' ? 'Pause' : 'Play');
+                $('#playpause')
+                    .attr({
+                        class: control_state.replace(/^P/, 'p'),
+                        title: control_state
+                    })
+                    .html(control_state);
             }
+
+            if (data.current_song) {
+                if (data.current_song.id != lala.status.last_current_song)
+                    $('section > table.current')
+                        .find('#current_time')
+                            .remove()
+                            .end()
+                        .find('#' + lala.status.last_current_song)
+                            .removeClass('current')
+                            .end()
+                        .find('#' + data.current_song.id)
+                            .addClass('current')
+                            .find('td:nth-child(3)')
+                                .prepend('<span id=current_time></span>');
+
+                $('#current_time').html(data.current_song.time + ' / ');
+
+                lala.status.last_current_song = data.current_song.id;
+            }
+
+            lala.status.last_state = data.state;
         },
 
         disconnected: function(reason)
@@ -81,7 +123,6 @@ var lala = {
                 return;
 
             lala.status.value = 1;
-            lala.action(lala.last_action);
             lala.controls.show();
         },
 
@@ -92,81 +133,222 @@ var lala = {
     },
 
     /* everytime a link gets clicked this function processes it */
-    action: function(url, obj)
+    action: function(uri, obj)
     {
-        if (url == 'current') {
-            lala.parse_data('/api/playlist/info', lala.page.current);
-            lala.controls.find('a').removeClass('active');
-            lala.controls.find('#' + url).addClass('active');
-        } else if (['play', 'pause', 'stop', 'next', 'previous'].indexOf(url) >= 0) {
-            lala.parse_data('/api/control/' + url, lala.update);
-            return;
-        }
-
-        var library = url.match(/^library(?:\?(.*))?$/);
+        var url = lala.helper.parse_url(uri);
         
-        if (library != null) {
-            lala.parse_data('/api/library' + ((library[1] != undefined) ? '?path=' + library[1] : ''), lala.page.library);
-            lala.controls.find('a').removeClass('active');
-            lala.controls.find('#library').addClass('active');
+        /* render the current playlist */
+        if (url.path == 'current') {
+            lala.request({
+                url: '/api/current/list',
+                callback: lala.current.index
+            });
         }
 
-        $.history.load(url);
-        lala.last_action = url;
+        /* render the library browser */
+        else if (url.path == 'library') {
+            lala.request({
+                url: '/api/library/list',
+                data: {path: url.params.path || ''},
+                callback: lala.library.index,
+                extra: {path: url.params.path || ''}
+            });
+        }
+
+        lala.controls
+            .find('a.active:first')
+                .removeClass('active')
+                .end()
+            .find('#' + url.path)
+                .addClass('active');
     },
 
-    /* the main wrapper to read the json data and do the appropriate things */
-    parse_data: function(url, callback)
+    /* display the current playlist */
+    current:
     {
-        $.getJSON(url, function(data) {
-            if (data.status == 'ok') {
-                lala.status.connected();
-                callback(data.data);
-            } else if (data.status == 'disconnected') {
-                lala.status.disconnected(data.reason);
-            } else if (data.status == 'error') {
-                lala.status.error(data.reason);
+        index: function(data, extra)
+        {
+            lala.content
+                .html(data)
+                .find('tr')
+                    .context_menu({
+                        menu: 'section > ul.context_menu:first',
+                        onBeforeShow: function(menu) {
+                            if ($(this).hasClass('ui-selected'))
+                                menu
+                                    .find('li.play:first')
+                                        .remove()
+                                        .end()
+                                    .find('li.current_selection:first')
+                                        .html('Selected');
+                        },
+                        onClick: function(link) {
+                            if (link == 'clear') {
+                                lala.request({
+                                    url: '/api/current/clear',
+                                    callback: function() {
+                                        lala.content.html('<div class=empty>' + lala.text.current_empty + '</div>');
+                                    }
+                                });
+                            } else if (link == 'remove') {
+                                var items = $(this).hasClass('ui-selected') ? lala.content.find('tr.ui-selected') : $(this);
+                                lala.request({
+                                    url: '/api/current/delete',
+                                    data: {tracks: items.map(function() { return $(this).attr('id'); }).get()},
+                                    callback: function() {
+                                        items.remove();
+                                    }
+                                });
+                            } else if (link == 'play') {
+                                lala.request({
+                                    url: '/api/current/play',
+                                    data: {track: ($(this).hasClass('ui-selected') ? lala.content.find('tr.ui-selected:first') : $(this)).attr('id')},
+                                    callback: lala.status.update
+                                });
+                            }
+                        }
+                    })
+                    .end()
+                .find('table:first')
+                    .selectable({filter: 'tr:not(.head)'});
+        }
+    },
+
+    /* show the file system to add files/folders */
+    library:
+    {
+        index: function(data, extra)
+        {
+            lala.content
+                .html(data)
+                .find('tr')
+                    .context_menu(lala.library.context_menu)
+                    .end()
+                .find('a.expand')
+                    .click(function() {
+                        lala.library.toggle_callback($(this), 1);
+                    })
+                    .end()
+                .find('table:first')
+                    .selectable({
+                        filter: 'tr:not(.sterile|.head)',
+                        cancel: 'a'
+                    });
+        },
+
+        context_menu: {
+            menu: 'section > ul.context_menu:first',
+            filter: 'tr',
+            onBeforeShow: function(menu) {
+                if ($(this).hasClass('ui-selected'))
+                    menu.find('li.current_selection:first').html('Selected');
+            },
+            onClick: function(link) {
+                var items = $(this).hasClass('ui-selected') ? lala.content.find('tr.ui-selected') : $(this);
+                if (link == 'add') {
+                    lala.request({
+                        url: '/api/current/add',
+                        data: {paths: items.map(function() { return $(this).attr('id'); }).get()},
+                    });
+                } else if (link == 'replace') {
+                    lala.request({
+                        url: '/api/current/add',
+                        data: {
+                            paths: items.map(function() { return $(this).attr('id'); }).get(),
+                            replace: true
+                        }
+                    });
+                }
+            }
+        },
+
+        toggle_callback: function(link, level) {
+            var node = link.closest('tr');
+            var path = node.attr('id');
+
+            if (link.hasClass('expand')) {
+                lala.request({
+                    url: '/api/library/list',
+                    data: {
+                        expand: path,
+                        level: level
+                    },
+                    extra: {
+                        node: node,
+                        link: link,
+                        level: level
+                    },
+                    callback: lala.library.expand
+                });
+            } else {
+                lala.content.find('tr#sub_' + path).remove();
+                link.removeClass('collapse').addClass('expand');
+            }
+        },
+
+        expand: function(data)
+        {
+            var level = this.level + 1;
+            $(data)
+                .insertAfter(this.node)
+                .find('tr')
+                    .context_menu(lala.library.context_menu)
+                    .end()
+                .find('a.expand')
+                    .click(function() {
+                        lala.library.toggle_callback($(this), level);
+                    });
+            this.link.removeClass('expand').addClass('collapse');
+        },
+    },
+
+    /* the main wrapper to interchange json data with the server */
+    request: function(options)
+    {
+
+        if (options.data)
+            options.data = JSON.stringify(options.data);
+
+        $.ajax({
+            type: 'POST',
+            url: options.url,
+            data: options.data,
+            dataType: 'json',
+            contentType: 'application/json',
+            global: options.global == undefined ? true : options.global,
+            success: function(data) {
+                if (data.status == 'ok') {
+                    lala.status.connected();
+                    if (options.callback)
+                        options.callback.call(options.extra || window, data.data);
+                } else if (data.status == 'disconnected') {
+                    lala.status.disconnected(data.reason);
+                } else if (data.status == 'error') {
+                    lala.status.error(data.reason);
+                }
             }
         });
     },
 
-    /* render the main pages */
-    page:
+    helper:
     {
-        /* display the current playlist */
-        current: function(data)
+        parse_url: function(url)
         {
-            var content = '<table><tr><th>Artist</th><th>Title</th><th class=right>Duration</th></tr>';
-            var i = 0;
-
-            for (i in data.tracks) {
-                var track = data.tracks[i];
-                content += '<tr id=track' + track.id + ' class="' + (i % 2 == 0 ? 'odd' : '') + ((track.id == data.current) ? ' current' : '') + '"><td>' + track.artist + '</td><td>' + track.title + '</td><td class=right>' + track.time + '</td></tr>';
-            }
-            content += '</table>';
-
-            lala.content.html(content);
-        },
-
-        /* show the file system to add files/folders */
-        library: function(data)
-        {
-            var content = '<table><tr><th>Item</th><th>Action</th></tr>';
-
-            for (i in data.items) {
-                var item = data.items[i];
-                content += '<tr><td>';
-                if (item.directory) {
-                    content += '<a href=#library?' + encodeURI(item.path) + ' title="' + item.name + '">' + item.name + '</a>';
-                } else {
-                    content += item.name;
-                }
-
-                content += '</td><td>Actions</td></tr>';
-            }
-            content += '</table>';
-
-            lala.content.html(content);
+            var a = document.createElement('a');
+            a.href = url;
+            return {path: a.pathname.replace(/^\/(.*)/, '$1'),
+                params: (function(){
+                    var ret = {},
+                        seg = a.search.replace(/^\?/,'').split('&'),
+                        len = seg.length, i = 0, s;
+                    for (;i<len;i++) {
+                        if (!seg[i]) { continue; }
+                        s = seg[i].split('=');
+                        ret[s[0]] = s[1];
+                    }
+                    return ret;
+                })(),
+                segments: a.pathname.replace(/^\//,'').split('/')}
         }
     }
 };

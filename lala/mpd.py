@@ -7,7 +7,7 @@ from threading import Thread, Event, Lock
 from time import time, sleep
 
 from flask import jsonify
-from mpd import MPDClient, ConnectionError
+from mpd import MPDClient, MPDError, ConnectionError
 
 class NotConnected(Exception):
     pass

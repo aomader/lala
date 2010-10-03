@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 
 <meta charset=utf-8>
-<title>lala - stopped</title>
+<title>lala</title>
 <link rel="shortcut icon" href=favicon.ico>
 <link rel=stylesheet href=/static/css/lala.css>
 
@@ -13,11 +13,10 @@
         <li><a href=#playlists id=playlists title=Playlists>Playlists</a></li>
     </ul>
     <ul id=controls>
-        <li><a href=#previous title=Previous><img src=/static/img/previous.png alt=Previous /></a></li>
-        <li id=playtoogle><a href=#play title=Play><img src=/static/img/play.png alt=Play /></a></li>
-        <!--<li><a href=#pause title=Pause><img src=/static/img/pause.png alt=Pause /></a></li>-->
-        <li><a href=#stop title=Stop><img src=/static/img/stop.png alt=Stop /></a></li>
-        <li><a href=#next title=Next><img src=/static/img/next.png alt=Next /></a></li>
+        <li><a href=# id=previous title=Previous>Previous</a></li>
+        <li><a href=# id=playpause title=Play class=play>Play</a></li>
+        <li><a href=# id=stop title=Stop>Stop</a></li>
+        <li><a href=# id=next title=Next>Next</a></li>
     </ul>
 </nav>
 
@@ -26,7 +25,10 @@
 </section>
 
 <script type=text/javascript src=/static/js/jquery.js></script>
+<script type=text/javascript src=/static/js/jquery.ui.js></script>
 <script type=text/javascript src=/static/js/jquery.history.js></script>
+<script type=text/javascript src=/static/js/jquery.menu.js></script>
+<script type=text/javascript src=/static/js/json2.js></script>
 <script type=text/javascript src=/static/js/lala.js></script>
 
 <script type=text/javascript>

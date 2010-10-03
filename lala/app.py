@@ -25,7 +25,6 @@ class LaLa(object):
         self.control.start()
 
     def stop(self, signum, frame):
-        print 'i catched that shit'
         self.listener.stop()
         self.control.stop()
 
@@ -70,7 +69,8 @@ class LaLa(object):
                           {'directory': False,
                            'path': item['file'],
                            'name': item['artist'] + ' - ' + item['title']}
-                          for item in self.command('lsinfo', path)]}
+                          for item in self.command('lsinfo', path)],
+                'up': '/'.join(path.split('/')[:-1]) if path != '' else None}
         
 
     def _format_time(self, time):
