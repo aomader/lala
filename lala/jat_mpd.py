@@ -201,11 +201,13 @@ class MPDClient(object):
     def _write_command(self, command, args=[]):
         parts = [command]
         for arg in args:
+            if isinstance(arg, unicode):
+                arg = arg.encode('utf-8')
             parts.append('"%s"' % escape(str(arg)))
         self._write_line(" ".join(parts))
 
     def _read_line(self):
-        line = self._rfile.readline()
+        line = self._rfile.readline().decode('utf-8')
         if not line.endswith("\n"):
             raise ConnectionError("Connection lost while reading line")
         line = line.rstrip("\n")

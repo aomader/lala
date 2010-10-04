@@ -16,8 +16,8 @@
     {% endif %}
 {% endif %}
 {% for item in items %}
-    {% set name = (item.directory.split('/')[-1] if item.directory else item.title + ' - ' + item.artist).decode('utf-8') %}
-    {% set path = (item.file if item.file else item.directory).decode('utf-8') %}
+    {% set name = item.directory.split('/')[-1] if item.directory else item.title + ' - ' + item.artist %}
+    {% set path = item.file if item.file else item.directory %}
     <tr id="{{ path|base16 }}">
         <td style="padding-left:{{ level * 20 + 4 }}px">
     {% if item.directory %}

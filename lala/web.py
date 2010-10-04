@@ -80,7 +80,7 @@ def api_current(action):
         if request.json.get('replace', False):
             lala.command('clear')
         for path in request.json['paths']:
-            lala.command('add', b16in(path).encode('utf-8'))
+            lala.command('add', b16in(path))
     elif action == 'delete':
         for track in request.json['tracks']:
             lala.command('deleteid', int(track))
@@ -96,16 +96,16 @@ def api_library(action):
     if action == 'list':
         path = b16in(request.json['expand']) if 'expand' in request.json else urlin(request.json.get('path', ''))
         level = int(request.json.get('level', 0))
-        return render_template('list_library.html', items=lala.command('lsinfo', path.encode('utf-8')),
+        return render_template('list_library.html', items=lala.command('lsinfo', path),
             level=level, current_path=path, up='/'.join(path.split('/')[:-1]) if path != '' else None)
     elif action == 'update':
         for path in request.json['paths']:
-            lala.command('update', b16in(path).encode('utf-8'))
+            lala.command('update', b16in(path))
     else:
         abort(400)
     return None
 
 def run(host, port, password):
     lala.start(host, port, password)
-    app.run(host='0.0.0.0', debug=False, use_reloader=False, processes=1)
+    app.run(host='0.0.0.0', debug=True, use_reloader=False, processes=1)
 
