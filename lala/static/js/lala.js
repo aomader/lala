@@ -15,6 +15,10 @@ var lala =
         lala.controls = $('nav:first');
         lala.content = $('section:first');
 
+        /* settings and help overlay */
+        $('#settings').click(function() { lala.settings.index(); });
+        $('#help').click(function() { lala.help.index(); });
+
         /* install simple control callbacks */
         $('#previous,#playpause,#stop,#next').click(function() {
             lala.request({
@@ -53,6 +57,9 @@ var lala =
                 lala.controls.css({opacity:1});
             }
         });
+
+        if (document.URL.replace(/.*#?/, '') == '')
+            $.history.load('current')
     },
 
     status:
@@ -113,7 +120,11 @@ var lala =
                 return;
 
             lala.status.value = 0;
-            lala.content.html('<div class=disconnected>No connection to mpd server: ' + reason + '</div>');
+            lala.content.html('<div class=disconnected><p>Sorry, but I\'m unable to connect to your mpd server.. :/<br /><span class=reason>' + reason + '</span></p><p><span class=settings>You could check your <a href=# id=check_settings title=Settings>settings</a>, though.</span></p></div>')
+                .find('#check_settings')
+                    .click(function() {
+                        lala.settings.index();
+                    });
             lala.controls.hide();
         },
 
@@ -136,6 +147,9 @@ var lala =
     action: function(uri, obj)
     {
         var url = lala.helper.parse_url(uri);
+
+        if (url.path == '')
+            return;
         
         /* render the current playlist */
         if (url.path == 'current') {
@@ -170,6 +184,16 @@ var lala =
         {
             lala.content
                 .html(data)
+                .find('a.play')
+                    .click(function() {
+                        lala.request({
+                            url: '/api/current/play',
+                            data: {track: $(this).closest('tr').attr('id')},
+                            callback: lala.status.update
+                        });
+                        return false;
+                    })
+                    .end()
                 .find('tr')
                     .context_menu({
                         menu: 'section > ul.context_menu:first',
@@ -210,7 +234,10 @@ var lala =
                     })
                     .end()
                 .find('table:first')
-                    .selectable({filter: 'tr:not(.head)'});
+                    .selectable({
+                        filter: 'tr:not(.head)',
+                        cancel: 'a'
+                    });
         }
     },
 
@@ -231,7 +258,7 @@ var lala =
                     .end()
                 .find('table:first')
                     .selectable({
-                        filter: 'tr:not(.sterile|.head)',
+                        filter: 'tr:not(.sterile):not(.head)',
                         cancel: 'a'
                     });
         },
@@ -245,17 +272,12 @@ var lala =
             },
             onClick: function(link) {
                 var items = $(this).hasClass('ui-selected') ? lala.content.find('tr.ui-selected') : $(this);
-                if (link == 'add') {
-                    lala.request({
-                        url: '/api/current/add',
-                        data: {paths: items.map(function() { return $(this).attr('id'); }).get()},
-                    });
-                } else if (link == 'replace') {
+                if (link == 'add' || link == 'replace') {
                     lala.request({
                         url: '/api/current/add',
                         data: {
                             paths: items.map(function() { return $(this).attr('id'); }).get(),
-                            replace: true
+                            replace: (link == 'replace' ? true : false)
                         }
                     });
                 }
@@ -299,7 +321,51 @@ var lala =
                         lala.library.toggle_callback($(this), level);
                     });
             this.link.removeClass('expand').addClass('collapse');
-        },
+        }
+    },
+
+    /* the settings overlay */
+    settings:
+    {
+        index: function()
+        {
+            return;
+
+            $.get('/settings', null, function(data) {
+                $(data)
+                    .find('input.save')
+                        .click(function() {
+                            var host = $('#mpd_host').val();
+                            var port = $('#mpd_port').val();
+                            var pass = $('#mpd_pass').val();
+
+                            lala.request({
+                                url: '/settings',
+                                data: {
+                                    host: host,
+                                    port: port,
+                                    pass: pass
+                                },
+                                callback: function() {
+                                    $('body > div.overlay_bg').animate({opacity: 0}).remove();
+                                    $('body > div.overlay').remove();
+                                    $.history.load(document.URL.replace(/.*#?/, ''));
+                                }
+                            });
+
+                            return false;
+                        })
+                        .end()
+                    .find('input.abort')
+                        .click(function() {
+                            $('body > div.overlay_bg').animate({opacity: 0}).remove();
+                            $('body > div.overlay').remove();
+                            return false;
+                        })
+                        .end()
+                    .overlay();
+            });
+        }
     },
 
     /* the main wrapper to interchange json data with the server */

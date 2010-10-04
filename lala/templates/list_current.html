@@ -7,8 +7,9 @@
     </tr>
     {% for track in tracks %}
     <tr id={{ track.id }}>
-        <td>{{ track.artist }}</td>
-        <td>{{ track.title }}</td>
+        {% set title = track.artist + ' - ' + track.title %}
+        <td><a href=# class=play title="Play {{ title }}">{{ track.artist }}</a></td>
+        <td><a href=# class=play title="Play {{ title }}">{{ track.title }}</a></td>
         <td class=right>{{ track.time|duration }}</td>
     </tr>
     {% endfor %}

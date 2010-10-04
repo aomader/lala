@@ -3,11 +3,12 @@
 
 from __future__ import absolute_import
 from functools import wraps
+from Queue import Queue
 from threading import Thread, Event, Lock
 from time import time, sleep
 
 from flask import jsonify
-from mpd import MPDClient, MPDError, ConnectionError
+from .jat_mpd import MPDClient, MPDError, ConnectionError
 
 class NotConnected(Exception):
     pass
@@ -18,7 +19,7 @@ class MPDThread(Thread):
     CONNECTED = 'connected'
     DISCONNECTED = 'disconnected'
 
-    def __init__(self, host='127.0.0.1', port=6600, password=None):
+    def __init__(self, host='127.0.0.1', port=6600, password=None, update_mode=False):
         Thread.__init__(self)
 
         self.host = host
@@ -28,10 +29,12 @@ class MPDThread(Thread):
         self._stop = Event()
         self._lock = Lock()
         self._mpd = None
+        self._listen = update_mode
         self.status = self.DISCONNECTED
         self.last_error = ''
         self.latency = 0.0
         self.connected_since = 0
+        self.updates = Queue(10)
         
         self.retry_timeout = 5
         self.idle_timeout = 15
@@ -43,7 +46,10 @@ class MPDThread(Thread):
                     self._stop.wait(self.retry_timeout)
                 continue
 
-            self._stop.wait(self.idle_timeout if self._ping() else self.retry_timeout)
+            if self._listen:
+                self._idle()
+            else:
+                self._stop.wait(self.idle_timeout if self._ping() else self.retry_timeout)
 
         try:
             self._mpd.close()
@@ -64,10 +70,6 @@ class MPDThread(Thread):
                 raise NotConnected(self.last_error)
             except MPDError as e:
                 raise CommandError(unicode(e))
-                
-
-    def listen(self, callback_func):
-        pass
 
     def stop(self):
         self._stop.set()
@@ -108,6 +110,20 @@ class MPDThread(Thread):
                 self.last_error = unicode(e)
 
         return False
+
+    def _idle(self):
+        with self._lock:
+            try:
+                up = self._mpd.idle()
+                if self.updates.full():
+                    try:
+                        elf.updates.get_nowait()
+                    except Empty:
+                        pass
+                self.updates.put_nowait(up)
+            except (ConnectionError, IOError) as e:
+                self.status = self.DISCONNECTED
+                self.last_error = unicode(e)
         
 def mpd_command(function):
     @wraps(function)

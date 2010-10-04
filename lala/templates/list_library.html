@@ -2,7 +2,7 @@
     <tr class=sterile id="sub_{{ current_path|base16 }}">
         <td style="padding:0;margin:0;border:0;" colspan="2">
 {% endif %}
-<table>
+<table class=library>
 {% if not level %}
     <tr class=head>
         <th colspan=2>Item</th>
@@ -28,11 +28,13 @@
     {% endif %}
         </td>
         <td class=right>
+        {#
             <a href=# class=add title="Add to playlist">Add</a> 
-            <a href=# class=replace title="Replace playlist">Replace</a> {#
+            <a href=# class=replace title="Replace playlist">Replace</a>
             <a href=# class=add_play title="Add to playlist and play">Add and play</a> 
             <a href=# class=replace_play title="Replace playlist and play">Replace and play</a> 
-            <a href=# class=update title="Update database">Update</a>#}
+            <a href=# class=update title="Update database">Update</a>
+        #}
         </td>
     </tr>
 {% endfor %}
