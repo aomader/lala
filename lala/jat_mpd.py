@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import select
 import socket
+import threading
 
 
 HELLO_PREFIX = "OK MPD "
@@ -55,6 +57,8 @@ class _NotConnected(object):
 class MPDClient(object):
     def __init__(self):
         self.iterate = False
+        self.stop = threading.Event()
+        self.stop.clear()
         self._reset()
         self._commands = {
             # Status Commands
@@ -207,6 +211,12 @@ class MPDClient(object):
         self._write_line(" ".join(parts))
 
     def _read_line(self):
+        while True:
+            if self.stop.is_set():
+                return
+            r, w, e = select.select([self._rfile], [], [], 1)
+            if r:
+                break
         line = self._rfile.readline().decode('utf-8')
         if not line.endswith("\n"):
             raise ConnectionError("Connection lost while reading line")

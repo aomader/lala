@@ -73,6 +73,7 @@ class MPDThread(Thread):
 
     def stop(self):
         self._stop.set()
+        self._mpd.stop.set()
         self.join()
 
     def _connect(self):

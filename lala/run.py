@@ -3,7 +3,7 @@
 
 from optparse import OptionParser
 
-from lala.web import run
+from .web import run
 
 if __name__ == '__main__':
     parser = OptionParser(usage='lala.py [OPTIONS]', description='A slick yet powerful mpd web client')
