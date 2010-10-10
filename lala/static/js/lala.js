@@ -47,7 +47,7 @@ var lala =
                 callback: lala.status.update,
                 global: false
             });
-        }, 1000);
+        }, 450);
 
         /* visuals */
         $(window).scroll(function(eventObject) {
@@ -75,7 +75,7 @@ var lala =
             {
                 var title = '';
                 if (data.state == 'play') {
-                    title += 'playing ' + data.current_song.name + ' | ';
+                    title += 'playing ' + data.current_song.title + ' | ';
                 } else if (data.state == 'pause') {
                     title += 'paused | ';
                 } else if (data.state == 'stop') {
@@ -93,7 +93,7 @@ var lala =
             }
 
             if (data.current_song) {
-                if (data.current_song.id != lala.status.last_current_song)
+                if (data.current_song.id != lala.status.last_current_song || lala.status.need_update)
                     $('section > table.current')
                         .find('#current_time')
                             .remove()
@@ -106,7 +106,7 @@ var lala =
                             .find('td:nth-child(3)')
                                 .prepend('<span id=current_time></span>');
 
-                $('#current_time').html(data.current_song.time + ' / ');
+                $('#current_time').html(lala.helper.parse_time(data.current_song.time) + ' / ');
 
                 lala.status.last_current_song = data.current_song.id;
             }
@@ -163,9 +163,9 @@ var lala =
         else if (url.path == 'library') {
             lala.request({
                 url: '/api/library/list',
-                data: {path: url.params.path || ''},
+                data: {path: decodeURIComponent(url.params.path || '')},
                 callback: lala.library.index,
-                extra: {path: url.params.path || ''}
+                extra: {path: decodeURIComponent(url.params.path || '')}
             });
         }
 
@@ -182,8 +182,15 @@ var lala =
     {
         index: function(data, extra)
         {
+            if (data.tracks.length == 0) {
+                lala.content.html('<div class=empty>Got no tracks for ya, sorry ... :\'(</div>');
+                return;
+            }
+
+            lala.status.need_update = true;
+
             lala.content
-                .html(data)
+                .html(lala.current.build(data))
                 .find('a.play')
                     .click(function() {
                         lala.request({
@@ -238,6 +245,36 @@ var lala =
                         filter: 'tr:not(.head)',
                         cancel: 'a'
                     });
+        },
+        
+        build: function(data) {
+            var content =
+                '<table class=current>' +
+                    '<tr class=head>' +
+                        '<th>Artist</th>' +
+                        '<th>Title</th>' +
+                        '<th class=right>Duration</th>' +
+                    '</tr>';
+
+            for (i in data.tracks) {
+                var track = data.tracks[i];
+                content +=
+                    '<tr id=' + track.id + '>' +
+                        '<td><a href=# class=play title="Play ' + track.artist + ' - ' + track.title + '">' + track.artist + '</a></td>' +
+                        '<td><a href=# class=play title="Play ' + track.artist + ' - ' + track.title + '">' + track.title + '</a></td>' +
+                        '<td class=right>' + lala.helper.parse_time(track.time) + '</td>' +
+                    '</tr>';
+            }
+
+            return content +
+                '</table>' +
+                '<ul class=context_menu>' +
+                    '<li class="head current_selection">Current</li>' +
+                    '<li class=play><a href=#play>Play</a></li>' +
+                    '<li><a href=#remove>Remove</a></li>' +
+                    '<li class=head>All</li>' +
+                    '<li><a href=#clear>Remove</a></li>' +
+                '</ul>';
         }
     },
 
@@ -247,7 +284,7 @@ var lala =
         index: function(data, extra)
         {
             lala.content
-                .html(data)
+                .html(lala.library.build(data, true))
                 .find('tr')
                     .context_menu(lala.library.context_menu)
                     .end()
@@ -263,7 +300,8 @@ var lala =
                     });
         },
 
-        context_menu: {
+        context_menu:
+        {
             menu: 'section > ul.context_menu:first',
             filter: 'tr',
             onBeforeShow: function(menu) {
@@ -276,7 +314,7 @@ var lala =
                     lala.request({
                         url: '/api/current/add',
                         data: {
-                            paths: items.map(function() { return $(this).attr('id'); }).get(),
+                            paths: items.map(function() { return $(this).attr('data-path'); }).get(),
                             replace: (link == 'replace' ? true : false)
                         }
                     });
@@ -284,26 +322,85 @@ var lala =
             }
         },
 
-        toggle_callback: function(link, level) {
+        build: function(data, root, level, path)
+        {
+            root = root || false;
+            level = level || 0;
+            path = path || '';
+            var content = '';
+
+            if (root) {
+                content += 
+                    '<table>' +
+                        '<tr class=head>' +
+                            '<th>Item</th>' +
+                        '</tr>' +
+                        (data.up != undefined ?
+                        '<tr>' +
+                            '<td>' +
+                                '<a href="#library?path=' + encodeURIComponent(data.up) + '" class=up title="One folder up..">One folder up..</a>' +
+                            '</td>' +
+                        '</tr>' : '');
+            } else {
+                content +=
+                    '<tr class=sterile data-path="sub_' + path + '">' +
+                        '<td>' +
+                            '<table>';
+            }
+
+            for (i in data.paths) {
+                var item = data.paths[i];
+                content +=
+                    '<tr data-path="' + item.path + '">' +
+                        '<td' + (!root ? ' style="padding-left:' + (level * 20 + 4) + 'px"' : '') + '>' +
+                            (item.directory ?
+                                '<a href=# class=expand title="Toggle ' + item.name + '">Toggle ' + item.name + '</a> ' +
+                                '<a href="#library?path=' + encodeURIComponent(item.path) + '" title="Go to ' + item.name + '">' + item.name + '</a>'
+                            :   '<span class=track>' + item.name + '</span>') +
+                        '</td>' +
+                    '</tr>';
+            }
+
+            if (root) {
+                content +=
+                    '</table>' +
+                    '<ul class=context_menu>' +
+                        '<li class="head current_selection">Current</li>' +
+                        '<li><a href=#add>Add</a></li>' +
+                        '<li><a href=#replace>Replace</a></li>' +
+                        '<li><a href=#update>Update</a></li>' +
+                        '<li class=head>All</li>' +
+                        '<li><a href=#update>Update</a></li>' +
+                    '</ul>';
+            } else {
+                content +=
+                            '</table>' +
+                        '</td>' +
+                    '</tr>';
+            }
+
+            return content;
+        },
+
+        toggle_callback: function(link, level)
+        {
             var node = link.closest('tr');
-            var path = node.attr('id');
+            var path = node.attr('data-path');
 
             if (link.hasClass('expand')) {
                 lala.request({
                     url: '/api/library/list',
-                    data: {
-                        expand: path,
-                        level: level
-                    },
+                    data: {path: path},
                     extra: {
                         node: node,
                         link: link,
-                        level: level
+                        level: level,
+                        path: path
                     },
                     callback: lala.library.expand
                 });
             } else {
-                lala.content.find('tr#sub_' + path).remove();
+                lala.content.find('tr[data-path=sub_' + path + ']:first').remove();
                 link.removeClass('collapse').addClass('expand');
             }
         },
@@ -311,7 +408,7 @@ var lala =
         expand: function(data)
         {
             var level = this.level + 1;
-            $(data)
+            $(lala.library.build(data, false, this.level, this.path))
                 .insertAfter(this.node)
                 .find('tr')
                     .context_menu(lala.library.context_menu)
@@ -415,6 +512,12 @@ var lala =
                     return ret;
                 })(),
                 segments: a.pathname.replace(/^\//,'').split('/')}
+        },
+
+        parse_time: function(time)
+        {
+            var sec = time % 60;
+            return Math.floor(time / 60) + ':' + (sec < 10 ? '0' : '') + sec;
         }
     }
 };

@@ -1,0 +1,4 @@
+exclude setup.cfg
+global-exclude *.swp *.pyc
+include *.txt
+graft lala/static

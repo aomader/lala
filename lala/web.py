@@ -1,111 +1,56 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-from base64 import b16encode, b16decode
-from operator import itemgetter
-from os.path import basename
-from urllib import quote, unquote
+# Copyright (C) 2010  Oliver Mader <b52@reaktor42.de>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
-from flask import Flask, render_template, jsonify, request, abort
+from os import path
 
-from .mpd import MPDThread, NotConnected, mpd_command
-from .app import LaLa
+from twisted.internet import reactor
+from twisted.web.resource import Resource
+from twisted.web.server import Site
+from twisted.web.static import File
 
-app = Flask(__name__)
-lala = LaLa()
+from .api import API
+from .lala import LaLa
 
-# base16 conversions
-b16in = lambda encoded: b16decode(encoded).decode('utf-8')
-b16out = lambda decoded: b16encode(decoded.encode('utf-8'))
+PACKAGE_PATH = path.abspath(path.dirname(__file__))
 
-# url escaping
-urlout = lambda url: quote(url.encode('utf-8'))
-urlin = lambda url: unquote(url.encode('utf-8')).decode('utf-8')
+lala = LaLa(reactor)
 
-# template filter
-@app.template_filter('duration')
-def duration(value):
-    return lala.format_time(value)
+class Root(Resource):
+    INDEX = file(path.join(PACKAGE_PATH, 'static', 'main.html'), 'r').read()
 
-@app.template_filter('base16')
-def base16(value):
-    return b16out(value)
+    def getChild(self, name, request):
+        if name == '':
+            return self
+        return Resource.getChild(self, name, request)
 
-@app.template_filter('url')
-def url(value):
-    return urlout(value)
+    def render_GET(self, request):
+        return self.INDEX
 
-# deliver the main pages
-@app.route('/')
-def index():
-    return render_template('index.html')
+root = Root()
+root.putChild('static', File(path.join(PACKAGE_PATH, 'static')))
+root.putChild('api', API(lala))
 
-@app.route('/settings', methods=['GET', 'POST'])
-def settings():
-    if request.method == 'POST':
-        '''
-        lala.mpd_host = request.json['host']
-        lala.mpd_port = int(request.json['port'])
-        lala.mpd_pass = request.json['pass']
-        lala.write_config()
-        '''
-        return 'OK'
-    else:
-        return render_template('settings.html', mpd_host=lala.mpd_host,
-            mpd_port=lala.mpd_port, mpd_pass=lala.mpd_pass)
+reactor.listenTCP(8888, Site(root))
 
-# the api calls
-@app.route('/api/status', methods=['POST'])
-@mpd_command
-def api_status():
-    return lala.status()
-
-@app.route('/api/control/<action>', methods=['POST'])
-@mpd_command
-def api_control(action):
-    if action not in ('play', 'stop', 'pause', 'next', 'previous'):
-        abort(400)
-    lala.command(action)
-    return lala.status()
-
-@app.route('/api/current/<action>', methods=['POST'])
-@mpd_command
-def api_current(action):
-    if action == 'list':
-        return render_template('list_current.html', tracks=lala.command('playlistinfo'))
-    elif action == 'play':
-        lala.command('playid', int(request.json['track']))
-        return lala.status()
-    elif action == 'add':
-        if request.json.get('replace', False):
-            lala.command('clear')
-        for path in request.json['paths']:
-            lala.command('add', b16in(path))
-    elif action == 'delete':
-        for track in request.json['tracks']:
-            lala.command('deleteid', int(track))
-    elif action == 'clear':
-        lala.command('clear')
-    else:
-        abort(400)
-    return None
-
-@app.route('/api/library/<action>', methods=['POST'])
-@mpd_command
-def api_library(action):
-    if action == 'list':
-        path = b16in(request.json['expand']) if 'expand' in request.json else urlin(request.json.get('path', ''))
-        level = int(request.json.get('level', 0))
-        return render_template('list_library.html', items=lala.command('lsinfo', path),
-            level=level, current_path=path, up='/'.join(path.split('/')[:-1]) if path != '' else None)
-    elif action == 'update':
-        for path in request.json['paths']:
-            lala.command('update', b16in(path))
-    else:
-        abort(400)
-    return None
-
-def run(host, port, password):
-    lala.start(host, port, password)
-    app.run(host='0.0.0.0', debug=True, use_reloader=False, processes=1)
+def serve_lala():
+    reactor.run()
 
