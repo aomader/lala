@@ -68,8 +68,8 @@ def current_list(lala, request):
     returnValue({'tracks':
         [{'id': track['id'],
           'file': track['file'],
-          'artist': track['artist'],
-          'title': track['title'],
+          'artist': track.get('artist', 'Unknown'),
+          'title': track.get('title', 'Unknown'),
           'time': track['time']}
          for track in tracks]})
 
@@ -101,11 +101,24 @@ def library_list(lala, request):
     opath = request.json['path'] if 'path' in request.json else ''
     result = yield lala.command('lsinfo', opath)
 
-    ret = {'paths':
-        [{'directory': True if 'directory' in item else False,
-          'path': item['directory'] if 'directory' in item else item['file'],
-          'name': path.basename(item['directory']) if 'directory' in item else item['artist'] + ' - ' + item['title']}
-         for item in result]}
+    paths = []
+    for item in result:
+        element = {}
+        if 'directory' in item or 'playlist' in item:
+            typ = 'directory' if 'directory' in item else 'playlist'
+            element = {'type': typ,
+                       'path': item[typ],
+                       'name': path.basename(item[typ])}
+        elif 'file' in item:
+            element = {'type': 'file',
+                       'path': item['file'],
+                       'name': item.get('artist', 'Unknown') + ' - ' + \
+                               item.get('title', 'Unknown')}
+        else:
+            print 'An lsinfo item I dont know: %s' % item
+        paths.append(element)
+
+    ret = {'paths': paths}
     if opath != '':
         ret['up'] = '/'.join(opath.split('/')[:-1])
 

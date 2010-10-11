@@ -362,11 +362,18 @@ var lala =
                 var item = data.paths[i];
                 content +=
                     '<tr data-path="' + item.path + '">' +
-                        '<td' + (!root ? ' style="padding-left:' + (level * 20 + 4) + 'px"' : '') + '>' +
-                            (item.directory ?
+                        '<td' + (!root ? ' style="padding-left:' + (level * 20 + 4) + 'px"' : '') + '>';
+                if (item.type == 'directory') {
+                    content +=
                                 '<a href=# class=expand title="Toggle ' + item.name + '">Toggle ' + item.name + '</a> ' +
-                                '<a href="#library?path=' + encodeURIComponent(item.path) + '" title="Go to ' + item.name + '">' + item.name + '</a>'
-                            :   '<span class=track>' + item.name + '</span>') +
+                                '<a href="#library?path=' + encodeURIComponent(item.path) + '" title="Go to ' + item.name + '">' + item.name + '</a>';
+                } else if (item.type == 'file') {
+                    content += '<span class=track>' + item.name + '</span>';
+                } else {
+                    content += '<span class=playlist>' + item.name + '</span>';
+                }
+
+                content +=
                         '</td>' +
                     '</tr>';
             }
