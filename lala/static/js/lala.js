@@ -6,6 +6,7 @@ var lala =
     },
 
     current_song: null,
+    current_view: null,
 
     init: function() {
         /* loading indicator */
@@ -58,7 +59,7 @@ var lala =
             }
         });
 
-        if (document.URL.replace(/.*#?/, '') == '')
+        if (document.URL.replace(/.*#/, '') == '')
             $.history.load('current')
     },
 
@@ -70,6 +71,9 @@ var lala =
 
         update: function(data)
         {
+            if (lala.current_view == 'current' && data.updates.indexOf('playlist') >= 0)
+                lala.action('current');
+
             if (lala.status.last_state != data.state ||
                 (data.current_song && data.current_song.id != lala.status.last_current_song))
             {
@@ -137,9 +141,11 @@ var lala =
             lala.controls.show();
         },
 
-        error: function()
+        error: function(reason)
         {
-            /* we need a notification */
+            $('<div class=error><strong>Error:</strong> ' + reason + '</div>')
+                .appendTo('section:first')
+                .animate({top: 45, opacity: 0.9}, 450, 'swing', function() {console.log('done');});
         }
     },
 
@@ -182,6 +188,8 @@ var lala =
     {
         index: function(data, extra)
         {
+            lala.current_view = 'current';
+
             if (data.tracks.length == 0) {
                 lala.content.html('<div class=empty>Got no tracks for ya, sorry ... :\'(</div>');
                 return;
@@ -283,6 +291,8 @@ var lala =
     {
         index: function(data, extra)
         {
+            lala.current_view = 'library';
+
             lala.content
                 .html(lala.library.build(data, true))
                 .find('tr')

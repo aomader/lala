@@ -80,6 +80,8 @@ def current_play(lala, request):
 
 @inlineCallbacks
 def current_add(lala, request):
+    if request.json['replace']:
+        yield lala.command('clear')
     result = yield lala.command([('add', path) for path in request.json['paths']])
     returnValue(lala.status())
 
