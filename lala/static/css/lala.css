@@ -103,6 +103,9 @@ table, tr, th, td {
 tr.odd {
     background-color: #fbfbfb;
 }
+tr.even {
+    background-color: none;
+}
 tr.current {
     font-weight: bold;
     color: #444;
@@ -235,7 +238,8 @@ div#settings span {
 
 
 /* icon links */
-a.expand, a.collapse, a.add, a.add_play, a.replace, a.replace_play, a.update {
+a.expand, a.collapse, a.add, a.add_play, a.replace, a.replace_play, a.update,
+a.playlist {
     display: inline-block;
     width: 16px;
     height: 16px;
@@ -243,6 +247,7 @@ a.expand, a.collapse, a.add, a.add_play, a.replace, a.replace_play, a.update {
     background-position: left center;
     text-align: left;
     text-indent: -99999px;
+    overflow: hidden;
 }
 a.expand {
     background-image: url(/static/img/folder_expand.png);
@@ -265,6 +270,9 @@ a.replace_play {
 a.update {
     background-image: url(/static/img/update.png);
 }
+a.playlist {
+    background-image: url(/static/img/playlist.png);
+}
 a.up {
     padding-left: 20px;
     background: url(/static/img/up.png) no-repeat left center;
@@ -272,6 +280,12 @@ a.up {
 span.track {
     padding-left: 20px;
     background: url(/static/img/track.png) no-repeat left center;
+}
+span.playlist {
+    padding-left: 20px;
+    line-height: 16px;
+    height: 16px;
+    background: url(/static/img/playlist.png) no-repeat left center;
 }
 
 /* notification */

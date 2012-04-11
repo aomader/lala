@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (C) 2010  Oliver Mader <b52@reaktor42.de>
+# Copyright (C) 2010,2011  Oliver Mader <b52@reaktor42.de>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,25 +22,37 @@
 
 from time import time
 
+from mpd import MPDFactory, CommandError
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 
-from mpd import MPDFactory, CommandError
-
+class NotConnected(Exception):
+    pass
 
 class LaLa(object):
     def __init__(self):
-        self._ctrl = None
-        self._ctrl_connector = None
+        self.disconnect()
+
+    def connect(self, host='127.0.0.1', port=6600, password=None):
         self._ctrl_factory = MPDFactory()
         self._ctrl_factory.connectionMade = self._ctrl_connection_made
         self._ctrl_factory.connectionLost = self._ctrl_connection_lost
+        self._ctrl_connector = reactor.connectTCP(host, port,
+            self._ctrl_factory)
 
-        self._idle = None
-        self._idle_connector = None
         self._idle_factory = MPDFactory()
         self._idle_factory.connectionMade = self._idle_connection_made
         self._idle_factory.connectionLost = self._idle_connection_lost
+        self._idle_connector = reactor.connectTCP(host, port,
+            self._idle_factory)
+
+    def disconnect(self):
+        self._ctrl = None
+        self._ctrl_factory = None
+        self._ctrl_connector = None
+        self._idle = None
+        self._idle_factory = None
+        self._idle_connector = None
 
         self.state = 'stop'
         self.current_song_id = -1
@@ -48,20 +60,6 @@ class LaLa(object):
         self.current_song_pos = 0
         self.current_song_updated = 0
         self.updates = set()
-
-        self.connect('192.168.42.10')
-
-    def connect(self, host='127.0.0.1', port=6600, password=None):
-        self._ctrl_connector = reactor.connectTCP(host, port,
-            self._ctrl_factory)
-        self._idle_connector = reactor.connectTCP(host, port,
-            self._idle_factory)
-
-    def disconnect(self):
-        self._ctrl_connector.disconnect()
-        self._ctrl_connector = None
-        self._idle_connector.disconnect()
-        self._idle_connector = None
         
     def _ctrl_connection_made(self, connector):
         self._ctrl = connector
@@ -79,8 +77,10 @@ class LaLa(object):
 
     def _idle_callback(self, updates):
         self._idle.idle().addCallback(self._idle_callback)
-        updates = list(updates)
+
         self.updates.update(updates)
+        updates = list(updates)
+
         if 'player' in updates or 'playlist' in updates:
             self._update_status()
 
@@ -93,14 +93,14 @@ class LaLa(object):
         elif status['state'] != 'stop' and status['songid'] != self.current_song_id:
             song = yield self._ctrl.currentsong()
             self.current_song_id = song['id']
-            self.current_song_title = song['artist'] + ' - ' + song['title']
+            self.current_song_title = song.get('artist', 'Unknown') + ' - ' + song.get('title', 'Unknown')
             self.current_song_pos = int(status['time'].split(':')[0])
             self.current_song_updated = time()
             self.state = status['state']
 
     def status(self):
-        ret = {'state': self.state, 'updates': list(self.updates)}
-        self.updates.clear()
+        ret = {'state': self.state, 'updates': self.updates}
+        self.updates = []
         if self.current_song_id != -1:
             ret['current_song'] = {
                 'id': self.current_song_id,
@@ -110,6 +110,9 @@ class LaLa(object):
         return ret
 
     def command(self, *args):
+        if self._ctrl is None:
+            raise NotConnected
+
         if isinstance(args[0], list):
             if len(args[0]) > 1:
                 self._ctrl.command_list_ok_begin()

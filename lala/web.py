@@ -32,7 +32,7 @@ from .lala import LaLa
 
 PACKAGE_PATH = path.abspath(path.dirname(__file__))
 
-lala = LaLa()
+lala = LaLa(reactor)
 
 class Root(Resource):
     INDEX = file(path.join(PACKAGE_PATH, 'static', 'main.html'), 'r').read()

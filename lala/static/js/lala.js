@@ -175,6 +175,14 @@ var lala =
             });
         }
 
+        /* render the current playlist */
+        else if (url.path == 'playlists') {
+            lala.request({
+                url: '/api/playlists/list',
+                callback: lala.playlists.index
+            });
+        }
+
         lala.controls
             .find('a.active:first')
                 .removeClass('active')
@@ -210,6 +218,13 @@ var lala =
                     })
                     .end()
                 .find('tr')
+                    .each(function(index) {
+                        if (index % 2 == 0) {
+                            $(this).removeClass('odd').addClass('even');
+                        } else {
+                            $(this).removeClass('even').addClass('odd');
+                        }
+                    })
                     .context_menu({
                         menu: 'section > ul.context_menu:first',
                         onBeforeShow: function(menu) {
@@ -370,7 +385,8 @@ var lala =
                 } else if (item.type == 'file') {
                     content += '<span class=track>' + item.name + '</span>';
                 } else {
-                    content += '<span class=playlist>' + item.name + '</span>';
+                    content += '<a href=# class=playlist></a> <a href="#playlists?name=' + encodeURIComponent(item.name) + '"' + 
+                               ' title="View playlist ' + item.name + '">' + item.name + '</a>';
                 }
 
                 content +=
@@ -435,6 +451,21 @@ var lala =
                         lala.library.toggle_callback($(this), level);
                     });
             this.link.removeClass('expand').addClass('collapse');
+        }
+    },
+
+    /* playlists stuff */
+    playlists:
+    {
+        index: function(data, extra)
+        {
+            var content = '<table><tr><th>Name</th><th></th></tr>';
+            for (i in data.playlists) {
+                var item = data.playlists[i];
+                content += '<tr><td><a href=# class=playlist title="Toggle ' + item.name + '">Toggle ' + item.name + '</a> ' +
+                           item.name + '</td><td></td></tr>';
+            }
+            lala.content.html(content + '</table>');
         }
     },
 

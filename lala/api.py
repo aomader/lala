@@ -23,11 +23,12 @@
 from json import dumps, load
 from os import path
 
+from mpd import CommandError, CommandListError
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web.resource import Resource, NoResource
 from twisted.web.server import NOT_DONE_YET
 
-from mpd import CommandError, CommandListError
+from .lala import NotConnected
 
 # show status information
 @inlineCallbacks
@@ -128,6 +129,23 @@ def library_list(lala, request):
 def library_update(lala, request):
     result = yield lala.command([('update', path) for path in request.json['paths']])
 
+# playlists
+@inlineCallbacks
+def playlists_list(lala, request):
+    result = yield lala.command('listplaylists')
+    returnValue({'playlists': [{'name': item['playlist'],
+                                'modified': item['last-modified']} for
+                               item in result]})
+
+@inlineCallbacks
+def playlists_show(lala, request):
+    result = yield lala.command('playlistinfo', request.json['name'])
+    print '%s' % list(result)
+
+
+
+class API(Resource):
+    isLeaf = True
 
 ROUTES = [
     ('status', status),
@@ -146,11 +164,10 @@ ROUTES = [
 
     ('library/list', library_list),
     ('library/update', library_update),
+
+    ('playlists/list', playlists_list),
+    ('playlists/show', playlists_show),
 ]
-
-
-class API(Resource):
-    isLeaf = True
 
     def __init__(self, lala):
         Resource.__init__(self)
@@ -175,7 +192,9 @@ class API(Resource):
         request.finish()
 
     def error(self, failure, request):
-        failure.trap(CommandError, CommandListError)
-        request.write(dumps({'status': 'error', 'reason':
-                             failure.getErrorMessage()}))
+        e = failure.trap(CommandError, CommandListError, NotConnected)
+        request.write(dumps({'status': 'disconnected' if e == NotConnected \
+                                            else 'error',
+                             'reason': '' if e == NotConnected else \
+                                       failure.getErrorMessage()}))
         request.finish()
